@@ -84,6 +84,56 @@ OpFunctionEnd
       predefs_before + before, predefs_before + after, true, true);
 }
 
+TEST_F(LocalSingleBlockLoadStoreElimTest, LSBElimForLinkage) {
+  const std::string predefs_before =
+      R"(OpCapability Shader
+OpCapability Linkage
+%1 = OpExtInstImport "GLSL.std.450"
+OpMemoryModel Logical GLSL450
+OpSource HLSL 630
+OpName %main "main"
+OpName %v "v"
+OpName %BaseColor "BaseColor"
+OpName %gl_FragColor "gl_FragColor"
+OpDecorate %main LinkageAttributes "main" Export
+%void = OpTypeVoid
+%7 = OpTypeFunction %void
+%float = OpTypeFloat 32
+%v4float = OpTypeVector %float 4
+%_ptr_Function_v4float = OpTypePointer Function %v4float
+%_ptr_Input_v4float = OpTypePointer Input %v4float
+%BaseColor = OpVariable %_ptr_Input_v4float Input
+%_ptr_Output_v4float = OpTypePointer Output %v4float
+%gl_FragColor = OpVariable %_ptr_Output_v4float Output
+)";
+
+  const std::string before =
+      R"(%main = OpFunction %void None %7
+%13 = OpLabel
+%v = OpVariable %_ptr_Function_v4float Function
+%14 = OpLoad %v4float %BaseColor
+OpStore %v %14
+%15 = OpLoad %v4float %v
+OpStore %gl_FragColor %15
+OpReturn
+OpFunctionEnd
+)";
+
+  const std::string after =
+      R"(%main = OpFunction %void None %7
+%13 = OpLabel
+%v = OpVariable %_ptr_Function_v4float Function
+%14 = OpLoad %v4float %BaseColor
+OpStore %v %14
+OpStore %gl_FragColor %14
+OpReturn
+OpFunctionEnd
+)";
+
+  SinglePassRunAndCheck<LocalSingleBlockLoadStoreElimPass>(
+      predefs_before + before, predefs_before + after, true, true);
+}
+
 TEST_F(LocalSingleBlockLoadStoreElimTest, SimpleLoadLoadElim) {
   // #version 140
   //
@@ -1449,6 +1499,49 @@ TEST_F(LocalSingleBlockLoadStoreElimTest, DebugValueTest) {
                OpFunctionEnd
   )";
   SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
+  SinglePassRunAndMatch<LocalSingleBlockLoadStoreElimPass>(text, false);
+}
+
+TEST_F(LocalSingleBlockLoadStoreElimTest, VkMemoryModelTest) {
+  const std::string text =
+      R"(
+; CHECK: OpCapability Shader
+; CHECK: OpCapability VulkanMemoryModel
+; CHECK: OpExtension "SPV_KHR_vulkan_memory_model"
+               OpCapability Shader
+               OpCapability VulkanMemoryModel
+               OpExtension "SPV_KHR_vulkan_memory_model"
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical Vulkan
+               OpEntryPoint GLCompute %main "main"
+               OpExecutionMode %main LocalSize 1 1 1
+               OpSource GLSL 450
+       %void = OpTypeVoid
+          %3 = OpTypeFunction %void
+        %int = OpTypeInt 32 1
+%_ptr_Function_int = OpTypePointer Function %int
+      %int_0 = OpConstant %int 0
+      %int_1 = OpConstant %int 1
+       %bool = OpTypeBool
+      %false = OpConstantFalse %bool
+; CHECK: OpFunction
+; CHECK-NEXT: OpLabel
+; CHECK-NEXT: [[a:%\w+]] = OpVariable
+; CHECK-NEXT: [[b:%\w+]] = OpVariable
+; CHECK: OpStore [[a]] [[v:%\w+]]
+; CHECK-NOT: OpLoad %int [[a]]
+; CHECK: OpStore [[b]] [[v]]
+       %main = OpFunction %void None %3
+          %5 = OpLabel
+          %a = OpVariable %_ptr_Function_int Function
+          %b = OpVariable %_ptr_Function_int Function
+               OpStore %a %int_0
+         %16 = OpLoad %int %a
+               OpStore %b %16
+               OpReturn
+               OpFunctionEnd
+)";
+
   SinglePassRunAndMatch<LocalSingleBlockLoadStoreElimPass>(text, false);
 }
 

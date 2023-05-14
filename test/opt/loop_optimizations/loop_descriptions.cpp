@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include <memory>
-#include <string>
 #include <vector>
 
 #include "gmock/gmock.h"
@@ -298,7 +297,7 @@ TEST_F(PassClassTest, NoLoop) {
 
 /*
 Generated from following GLSL with latch block artificially inserted to be
-seperate from continue.
+separate from continue.
 #version 430
 void main(void) {
     float x[10];

@@ -26,7 +26,21 @@ COMPILER=$2
 TOOL=$3
 BUILD_SHA=${KOKORO_GITHUB_COMMIT:-$KOKORO_GITHUB_PULL_REQUEST_COMMIT}
 
+# chown the given directory to the current user, if it exists.
+# Docker creates files with the root user - this can upset the Kokoro artifact copier.
+function chown_dir() {
+  dir=$1
+  if [[ -d "$dir" ]]; then
+    sudo chown -R "$(id -u):$(id -g)" "$dir"
+  fi
+}
+
+set +e
+# Allow build failures
+
+# "--privileged" is required to run ptrace in the asan builds.
 docker run --rm -i \
+  --privileged \
   --volume "${ROOT_DIR}:${ROOT_DIR}" \
   --volume "${KOKORO_ARTIFACTS_DIR}:${KOKORO_ARTIFACTS_DIR}" \
   --workdir "${ROOT_DIR}" \
@@ -39,16 +53,11 @@ docker run --rm -i \
   --env BUILD_SHA="${BUILD_SHA}" \
   --entrypoint "${SCRIPT_DIR}/build-docker.sh" \
   "gcr.io/shaderc-build/radial-build:latest"
+RESULT=$?
 
-
-# chown the given directory to the current user, if it exists.
-# Docker creates files with the root user - this can upset the Kokoro artifact copier.
-function chown_dir() {
-  dir=$1
-  if [[ -d "$dir" ]]; then
-    sudo chown -R "$(id -u):$(id -g)" "$dir"
-  fi
-}
-
+# This is important. If the permissions are not fixed, kokoro will fail
+# to pull build artifacts, and put the build in tool-failure state, which
+# blocks the logs.
 chown_dir "${ROOT_DIR}/build"
 chown_dir "${ROOT_DIR}/external"
+exit $RESULT

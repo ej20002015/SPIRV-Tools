@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2019 Google Inc.
+# Copyright (c) 2021 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,16 +15,28 @@
 
 # Attempts to roll all entries in DEPS to tip-of-tree and create a commit.
 #
-# Depends on roll-dep from depot_path being in PATH.
+# Depends on roll-dep from depot_tools
+# (https://chromium.googlesource.com/chromium/tools/depot_tools) being in PATH.
 
-effcee_dir="external/effcee/"
-effcee_trunk="origin/main"
-googletest_dir="external/googletest/"
-googletest_trunk="origin/master"
-re2_dir="external/re2/"
-re2_trunk="origin/master"
-spirv_headers_dir="external/spirv-headers/"
-spirv_headers_trunk="origin/master"
+set -eo pipefail
+
+function ExitIfIsInterestingError() {
+  local return_code=$1
+  if [[ ${return_code} -ne 0 && ${return_code} -ne 2 ]]; then
+    exit ${return_code}
+  fi
+  return 0
+}
+
+
+# We are not rolling google test for now. The latest version requires C++14.
+dependencies=("external/effcee/"
+              "external/googletest/"
+              "external/re2/"
+              "external/spirv-headers/")
+
+
+branch="origin/main"
 
 # This script assumes it's parent directory is the repo root.
 repo_path=$(dirname "$0")/..
@@ -36,11 +48,14 @@ if [[ $(git diff --stat) != '' ]]; then
     exit 1
 fi
 
+echo "*** Ignore messages about running 'git cl upload' ***"
+
 old_head=$(git rev-parse HEAD)
 
-roll-dep --ignore-dirty-tree --roll-to="${effcee_trunk}" "${effcee_dir}"
-roll-dep --ignore-dirty-tree --roll-to="${googletest_trunk}" "${googletest_dir}"
-roll-dep --ignore-dirty-tree --roll-to="${re2_trunk}" "${re2_dir}"
-roll-dep --ignore-dirty-tree --roll-to="${spirv_headers_trunk}" "${spirv_headers_dir}"
+set +e
 
-git rebase --interactive "${old_head}"
+for dep in ${dependencies[@]}; do
+  echo "Rolling $dep"
+  roll-dep --ignore-dirty-tree --roll-to="${branch}" "${dep}"
+  ExitIfIsInterestingError $?
+done

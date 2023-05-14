@@ -12,16 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "source/opt/module.h"
+
 #include <memory>
-#include <sstream>
-#include <string>
 #include <vector>
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "source/opt/build_module.h"
-#include "source/opt/module.h"
-#include "source/opt/pass.h"
 #include "spirv-tools/libspirv.hpp"
 #include "test/opt/module_utils.h"
 
@@ -52,7 +50,7 @@ inline std::unique_ptr<IRContext> BuildModule(std::string text) {
 }
 
 TEST(ModuleTest, ComputeIdBound) {
-  // Emtpy module case.
+  // Empty module case.
   EXPECT_EQ(1u, BuildModule("")->module()->ComputeIdBound());
   // Sensitive to result id
   EXPECT_EQ(2u, BuildModule("%void = OpTypeVoid")->module()->ComputeIdBound());
@@ -324,7 +322,7 @@ OpFunctionEnd
   std::unordered_set<uint32_t> non_semantic_ids;
   context->module()->ForEachInst(
       [&non_semantic_ids](const Instruction* inst) {
-        if (inst->opcode() == SpvOpExtInst) {
+        if (inst->opcode() == spv::Op::OpExtInst) {
           non_semantic_ids.insert(inst->result_id());
         }
       },

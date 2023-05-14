@@ -12,15 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "source/opt/loop_fission.h"
+
 #include <memory>
-#include <string>
 #include <vector>
 
 #include "gmock/gmock.h"
-#include "source/opt/loop_fission.h"
-#include "source/opt/loop_unroller.h"
 #include "source/opt/loop_utils.h"
-#include "source/opt/pass.h"
 #include "test/opt/assembly_builder.h"
 #include "test/opt/function_utils.h"
 #include "test/opt/pass_fixture.h"
@@ -692,7 +690,7 @@ SetDisassembleOptions(SPV_BINARY_TO_TEXT_OPTION_NO_HEADER);
 SinglePassRunAndCheck<LoopFissionPass>(source, expected, true);
 
 // By passing 1 as argument we are using the constructor which makes the
-// critera to split the loop be if the registers in the loop exceede 1. By
+// criteria to split the loop be if the registers in the loop exceede 1. By
 // using this constructor we are also enabling multiple passes (disabled by
 // default).
 SinglePassRunAndCheck<LoopFissionPass>(source, expected_multiple_passes, true,
